@@ -1,0 +1,8 @@
+{
+  "servers" : [
+    "https://127.0.0.1:1232/", "https://127.0.0.1:1233/"
+  ],
+  "current_server_index" : 0,
+  "heartbeat_time" : 1000,
+  "cooldown_time": 3000
+}
