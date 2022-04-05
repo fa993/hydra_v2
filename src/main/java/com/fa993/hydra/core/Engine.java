@@ -57,6 +57,7 @@ public class Engine {
         ch.connect(new InetSocketAddress(u.getHost(), u.getPort()));
         if(this.transmitter != null && !this.transmitter.isClosed()) {
             this.transmitter.close();
+            this.transmitterConnectedToIndex = -1;
         }
         this.transmitter = ch.socket();
         this.transmitter.setTcpNoDelay(false);
@@ -164,8 +165,9 @@ public class Engine {
             try {
                 transmit(t);
                 return;
-            } catch (Exception ex) {
+            } catch (IOException ex) {
                 //irregular failure occurred
+                this.transmitterConnectedToIndex = -1;
             }
         }
         for (int i = (this.config.getCurrentServerIndex() + 1) % this.config.getServers().length; this.transmitter == null; i = (i + 1) % this.config.getServers().length) {
@@ -195,6 +197,7 @@ public class Engine {
                     }
                     if (!t.transmitter.isClosed()) {
                         t.transmitter.close();
+                        t.transmitterConnectedToIndex = -1;
                     }
                 }
             }
