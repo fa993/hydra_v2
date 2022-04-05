@@ -7,6 +7,7 @@ import com.fa993.hydra.parcel.Token;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
@@ -74,6 +75,7 @@ public class Engine {
             try {
                 s = this.receiver.accept();
                 s.getChannel().configureBlocking(true);
+                s.setSoTimeout(this.config.getCooldownTime() + this.config.getCurrentServerIndex() * this.config.getHeartbeatTime() * 2);
             } catch (SocketTimeoutException e) {
                 //timed out....
                 competingForPrimary = true;
@@ -83,7 +85,7 @@ public class Engine {
             }
             while (true) {
                 try {
-                    s.getChannel().read(receiverBuffer);
+                    Channels.newChannel(s.getInputStream()).read(receiverBuffer);
                 } catch (SocketTimeoutException ex) {
                     //timed out
                     competingForPrimary = true;
@@ -170,13 +172,14 @@ public class Engine {
                 this.transmitterConnectedToIndex = -1;
             }
         }
-        for (int i = (this.config.getCurrentServerIndex() + 1) % this.config.getServers().length; this.transmitter == null; i = (i + 1) % this.config.getServers().length) {
+        for (int i = (this.config.getCurrentServerIndex() + 1) % this.config.getServers().length; ; i = (i + 1) % this.config.getServers().length) {
             try {
                 if(!(this.transmitter != null && i == this.transmitterConnectedToIndex)) {
                     setupTransmitter(this.config.getServers()[i]);
                 }
                 transmit(t);
                 this.transmitterConnectedToIndex = i;
+                break;
             } catch (IOException ex) {
                 //log failed connection x
             }
