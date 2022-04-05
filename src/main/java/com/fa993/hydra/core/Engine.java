@@ -7,9 +7,7 @@ import com.fa993.hydra.parcel.Token;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.Arrays;
 import java.util.Spliterator;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -83,9 +81,15 @@ public class Engine {
                 sendToken(t);
                 continue;
             }
+            ReadableByteChannel ch = Channels.newChannel(s.getInputStream());
             while (true) {
                 try {
-                    Channels.newChannel(s.getInputStream()).read(receiverBuffer);
+                   int r = ch.read(receiverBuffer);
+                   if(r == -1) {
+                       s.close();
+                       s = null;
+                       break;
+                   }
                 } catch (SocketTimeoutException ex) {
                     //timed out
                     competingForPrimary = true;
@@ -101,7 +105,7 @@ public class Engine {
                     break;
                 }
                 receiverBuffer.flip();
-                while (receiverBuffer.limit() - 1 > -1 && receiverBuffer.hasRemaining() && receiverBuffer.get(receiverBuffer.limit() - 1) == '\0') {
+                while (receiverBuffer.hasRemaining() && receiverBuffer.get(receiverBuffer.limit() - 1) == '\0') {
                     //process
                     switch (receiverBuffer.get()) {
                         case Sendable.MASK_FOR_TOKEN:
