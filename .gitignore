@@ -1,4 +1,4 @@
 .idea/
 target/
-src/resources/waterfall.json
+src/main/resources/waterfall.json
 
