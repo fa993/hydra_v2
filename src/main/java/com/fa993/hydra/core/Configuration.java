@@ -25,6 +25,9 @@ public class Configuration {
     @JsonProperty("cooldown_time")
     private int cooldownTime;
 
+    @JsonProperty("cooldown_differential")
+    private int cooldownDifferential;
+
     @JsonProperty("connection_provider")
     private String connectionProvider;
 
@@ -43,6 +46,7 @@ public class Configuration {
         this.currentServerIndex = 0;
         this.heartbeatTime = 1000;
         this.cooldownTime = 100000;
+        this.cooldownDifferential = 2000;
         this.connectionProvider = "com.fa993.hydra.impl.SocketConnectionProvider";
     }
 
@@ -85,6 +89,14 @@ public class Configuration {
 
     public void setCooldownTime(int cooldownTime) {
         this.cooldownTime = cooldownTime;
+    }
+
+    public int getCooldownDifferential() {
+        return cooldownDifferential;
+    }
+
+    public void setCooldownDifferential(int cooldownDifferential) {
+        this.cooldownDifferential = cooldownDifferential;
     }
 
     public String getConnectionProvider() {

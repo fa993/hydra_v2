@@ -46,7 +46,7 @@ public class Engine {
         ServerSocketChannel ch = ServerSocketChannel.open();
         ch.bind(new InetSocketAddress(url.getHost(), url.getPort()));
         this.receiver = ch.socket();
-        this.receiver.setSoTimeout(this.config.getCooldownTime() + this.config.getCurrentServerIndex() * this.config.getHeartbeatTime() * 2);
+        this.receiver.setSoTimeout(this.config.getCooldownTime() + this.config.getCurrentServerIndex() * this.config.getCooldownDifferential());
     }
 
     private void setupTransmitter(String url) throws IOException {
@@ -73,7 +73,8 @@ public class Engine {
             try {
                 s = this.receiver.accept();
                 s.getChannel().configureBlocking(true);
-                s.setSoTimeout(this.config.getCooldownTime() + this.config.getCurrentServerIndex() * this.config.getHeartbeatTime() * 2);
+//                System.out.println("Connected To: " + s.getPort());
+                s.setSoTimeout(this.config.getCooldownTime() + this.config.getCurrentServerIndex() * this.config.getCooldownDifferential());
             } catch (SocketTimeoutException e) {
                 //timed out....
                 competingForPrimary = true;
@@ -84,12 +85,13 @@ public class Engine {
             ReadableByteChannel ch = Channels.newChannel(s.getInputStream());
             while (true) {
                 try {
-                   int r = ch.read(receiverBuffer);
-                   if(r == -1) {
-                       s.close();
-                       s = null;
-                       break;
-                   }
+                    int r = ch.read(receiverBuffer);
+                    if(r == -1) {
+                        s.close();
+                        s = null;
+                        break;
+                    }
+//                   System.out.println("Reading message");
                 } catch (SocketTimeoutException ex) {
                     //timed out
                     competingForPrimary = true;
@@ -110,6 +112,10 @@ public class Engine {
                     switch (receiverBuffer.get()) {
                         case Sendable.MASK_FOR_TOKEN:
                             int nextToken = receiverBuffer.getInt();
+                            if (receiverBuffer.get() != '\0') {
+                                System.out.println("Incorrect Format, Dropping Packet");
+                                break;
+                            }
                             if ((competingForPrimary && nextToken > this.config.getCurrentServerIndex()) || (isPrimary && nextToken != this.config.getCurrentServerIndex())) {
                                 //swallow the event
                                 break;
@@ -133,14 +139,17 @@ public class Engine {
 
                             break;
                         case Sendable.MASK_FOR_COMMAND:
+                            if (receiverBuffer.get() != '\0') {
+                                System.out.println("Incorrect Format");
+                                throw new RuntimeException("Hey");
+                            }
                             break;
                     }
-                    if (receiverBuffer.get() != '\0') {
-                        System.out.println("Incorrect Format");
-                        throw new RuntimeException("Hey");
-                    }
                 }
-                receiverBuffer.clear();
+                if(receiverBuffer.capacity() == receiverBuffer.limit()) {
+                    System.out.println("Could not fit full packet in buffer, dropping packet");
+                    receiverBuffer.clear();
+                }
             }
         }
 //        startTalking();
@@ -148,11 +157,7 @@ public class Engine {
 
     private synchronized void transmit(Sendable send) throws IOException {
         transmissionBuffer.clear();
-        while (!send.encode(transmissionBuffer)) {
-            transmissionBuffer.flip();
-            this.transmitter.getChannel().write(transmissionBuffer);
-            transmissionBuffer.clear();
-        }
+        send.encode(transmissionBuffer);
         transmissionBuffer.put((byte) '\0');
         transmissionBuffer.flip();
         this.transmitter.getChannel().write(transmissionBuffer);
@@ -170,6 +175,7 @@ public class Engine {
             //just transmit
             try {
                 transmit(t);
+//                System.out.println("Transmitted Without Modifications");
                 return;
             } catch (IOException ex) {
                 //irregular failure occurred
@@ -182,6 +188,7 @@ public class Engine {
                     setupTransmitter(this.config.getServers()[i]);
                 }
                 transmit(t);
+//                System.out.println("Transmitted to: " + this.transmitter.getPort());
                 this.transmitterConnectedToIndex = i;
                 break;
             } catch (IOException ex) {
@@ -198,6 +205,7 @@ public class Engine {
                 t = new Engine();
                 t.startListening();
             } catch (Exception ex) {
+                System.out.println("Creating again");
                 if (t != null) {
                     if (!t.receiver.isClosed()) {
                         t.receiver.close();
